@@ -1,0 +1,28 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}GU{% endblock %}</title>
+    <link rel="icon" href="{% static 'main/favicon.ico' %}">
+    <link href="{% static 'main/plugins/bootstrap-4.6.1-dist/css/bootstrap.min.css' %}" rel="stylesheet"/>
+    <link href="{% static 'main/plugins/bootstrap-icons-1.8.1/bootstrap-icons.css' %}" rel="stylesheet"/>
+    <link href="{% static 'main/css/main.css' %}" rel="stylesheet"/>
+    {% block link_extra %}{% endblock %}
+    <script src="{% static 'main/plugins/jquery-3.6.0.min.js' %}" type="text/javascript"></script>
+    <script src="{% static 'main/plugins/bootstrap-4.6.1-dist/js/bootstrap.min.js' %}" type="text/javascript"></script>
+    {% block script_extra %}{% endblock %}
+</head>
+<body>
+<nav>
+    <li><a href="{% url 'home' %}">Home</a></li>
+    <li><a href="{% url 'cards' %}">Cards</a></li>
+    <li><a href="{% url 'ratio' %}">Ratio</a></li>
+    <li><a href="{% url 'bargains' %}">Bargains</a></li>
+    <li><a href="{% url 'firesale' %}">Firesale</a></li>
+</nav>
+{% block content %}
+{% endblock %}
+</body>
+</html>

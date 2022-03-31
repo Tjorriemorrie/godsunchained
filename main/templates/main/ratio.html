@@ -1,0 +1,45 @@
+{% extends 'main/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Ratio - {{ block.super }}{% endblock %}
+
+{% block content %}
+<h2>{{ protos|length }} Cards</h2>
+<table width="100%" border="1" cellspacing="1">
+    <thead>
+    <tr>
+        <th>Proto</th>
+        <th>God</th>
+        <th>Name</th>
+        <th>On sale</th>
+        <th>Current</th>
+        <th>Runner</th>
+        <th>Ratio</th>
+        <th>Last</th>
+        <th>7 avg</th>
+        <th>14 avg</th>
+        <th>30 avg</th>
+        <th>60 avg</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for proto in protos %}
+    <tr>
+        <td>{{ proto.id }}</td>
+        <td>{{ proto.god }}</td>
+        <td>{{ proto.name }}</td>
+        <td>{{ proto.qty_on_sale }}</td>
+        <td align="right">{{ proto.current_price|floatformat:0|intcomma }}</td>
+        <td align="right">{{ proto.runner_price|floatformat:0|intcomma }}</td>
+        <td align="right">{{ proto.ratio_price|stringformat:".2f" }}</td>
+        <td align="right">{{ proto.histories.last.last_price|floatformat:0|intcomma }}</td>
+        <td align="right">{{ proto.histories.last.prc7|floatformat:0|intcomma }} (sold {{ proto.histories.last.vol7|floatformat:0|intcomma }})</td>
+        <td align="right">{{ proto.histories.last.prc14|floatformat:0|intcomma }} (sold {{ proto.histories.last.vol14|floatformat:0|intcomma }})</td>
+        <td align="right">{{ proto.histories.last.prc30|floatformat:0|intcomma }} (sold {{ proto.histories.last.vol30|floatformat:0|intcomma }})</td>
+        <td align="right">{{ proto.histories.last.prc60|floatformat:0|intcomma }} (sold {{ proto.histories.last.vol60|floatformat:0|intcomma }})</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

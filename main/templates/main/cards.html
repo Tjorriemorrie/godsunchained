@@ -1,0 +1,14 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Cards - {{ block.super }}{% endblock %}
+
+{% block content %}
+<h2>{{ protos|length }} Cards</h2>
+{% for proto in protos %}
+    <p>{{ proto }}</p>
+    {{ proto.for_sale.all|length }} on sale
+<!--        <img src="{{ proto.img }}" height="20px"/>-->
+    </p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block title %}Home - {{ block.super }}{% endblock %}
+
+{% block content %}
+<h2>Home</h2>
+<h4>Orders:</h4>
+<div class="flexbox">
+    <div class="flexbox-item">
+        <p>Filled: {{ filled_count }}</p>
+        <div>{{ filled_by_day_graph|safe }}</div>
+    </div>
+    <div class="flexbox-item">
+        <p>Active: {{ active_count }}</p>
+        <div>{{ active_by_day_graph|safe }}</div>
+    </div>
+</div>
+{% endblock %}

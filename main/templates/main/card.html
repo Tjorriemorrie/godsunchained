@@ -1,0 +1,74 @@
+{% extends 'main/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ proto.name }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<h2>{{ proto.name }}</h2>
+<p><a href="https://api.godsunchained.com/v0/proto/{{ proto.id }}" target="_blank">link</a></p>
+<p>God: {{ proto.god }}</p>
+<p>Set: {{ proto.set }}</p>
+<p>Rarity: {{ proto.rarity }}</p>
+<p>Mana: {{ proto.mana }}</p>
+<p>Type: {{ proto.type }}</p>
+<p>Img: {{ proto.img }}</p>
+<p>Tribe: {{ proto.tribe }}</p>
+<p>Attack: {{ proto.attack }}</p>
+<p>Health: {{ proto.health }}</p>
+
+<br/>
+
+<p>On sale: {{ proto.qty_on_sale }}</p>
+<p>Current price: {{ proto.current_price }}</p>
+<p>Runner price: {{ proto.runner_price }}</p>
+<p>Ratio to runner: {{ proto.ratio_price }}</p>
+<p>Stats updated at: {{ proto.stats_at }}</p>
+
+<br/>
+<div class="flexbox">
+    <div class="flexbox-item">
+        <h4>Active</h4>
+        <table width="100%" border="1" cellspacing="1">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Cost</th>
+                <th>Sell token type</th>
+                <th>Updated at</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for order in proto.active_orders %}
+                <tr>
+                    <td>
+                        <a href="https://api.x.immutable.com/v1/orders/{{ order.id }}" target="_new">{{ order.id }}</a>
+                        (<a href="https://api.x.immutable.com/v1/assets/{{ order.sell_token_address }}/{{ order.sell_token_id }}" target="_blank">asset</a>)
+                    </td>
+                    <td>{{ order.cost|floatformat:6|intcomma }}</td>
+                    <td>{{ order.sell_type }}</td>
+                    <td>{{ order.updated_at }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="flexbox-item">
+        <h4>Filled</h4>
+        <table width="100%" border="1" cellspacing="1">
+            <thead>
+            <tr>
+                <th>ID</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for order in proto.active_orders %}
+            <tr>
+                <td><a href="https://api.x.immutable.com/v1/orders/{{ order.id }}" target="_new">{{ order.id }}</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

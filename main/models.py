@@ -100,7 +100,7 @@ class Proto(models.Model):
     qty_on_sale = models.IntegerField(null=True)
     current_price = models.FloatField(null=True)
     runner_price = models.FloatField(null=True)
-    ratio_price = models.FloatField(null=True)
+    last_price = models.FloatField(null=True)
     stats_at = models.DateTimeField(null=True)
 
     def __str__(self) -> str:
@@ -108,10 +108,13 @@ class Proto(models.Model):
 
     def active_orders(self):
         return Order.objects.filter(
-            asset__proto_id=self.pk, status=ORDER_STATUS_ACTIVE).order_by('asset__orders__cost').all()
+            asset__proto_id=self.pk, status=ORDER_STATUS_ACTIVE
+        ).order_by('usd').all()
 
     def filled_orders(self):
-        return Order.objects.filter(asset__proto_id=self.pk, status=ORDER_STATUS_FILLED).all()
+        return Order.objects.filter(
+            asset__proto_id=self.pk, status=ORDER_STATUS_FILLED
+        ).order_by('-updated_at').all()
 
 
 class Asset(models.Model):
@@ -164,8 +167,8 @@ class Order(models.Model):
 
     scraped_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        ordering = ['-pk']
+    # class Meta:
+    #     ordering = ['-pk']
 
     def __str__(self) -> str:
         return f'<Order {self.pk} {self.status}>'

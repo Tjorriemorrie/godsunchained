@@ -22,7 +22,6 @@ urlpatterns = [
     path('', views.HomeView.as_view(), name='home'),
     path('cards', views.CardsView.as_view(), name='cards'),
     path('card/<int:pk>', views.CardView.as_view(), name='card'),
-    path('ratio', views.RatioView.as_view(), name='ratio'),
     path('bargains', views.BargainView.as_view(), name='bargains'),
     path('firesale', views.FiresaleView.as_view(), name='firesale'),
 ]

@@ -11,7 +11,8 @@ from retry import retry
 
 from godsunchained.settings import BASE_DIR
 from main.constants import BUY_TOKEN_TYPE_ERC20, BUY_TOKEN_TYPE_ETH, CURRENCY_GOG, CURRENCY_IMX, \
-    SELL_TOKEN_ADDRESS, SELL_TOKEN_TYPE_ERC721, TOKEN_CURRENCIES
+    ORDER_STATUS_ACTIVE, ORDER_STATUS_FILLED, SELL_TOKEN_ADDRESS, SELL_TOKEN_TYPE_ERC721, \
+    TOKEN_CURRENCIES
 from main.models import Asset, Order, Proto
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ class TokenTypeOrdersScrapeError(Exception):
 
 
 class DataOrdersScrapeError(Exception):
+    """Data orders exception error."""
+
+
+class MetadataScrapeError(Exception):
     """Data orders exception error."""
 
 
@@ -79,8 +84,11 @@ def get(url: str, params: dict = None) -> dict:
 
 
 def upsert_proto(metadata: dict) -> Proto:
-    if metadata['type'] != 'card':
-        raise CardTypeOrdersScrapeError(metadata)
+    try:
+        if metadata['type'] != 'card':
+            raise CardTypeOrdersScrapeError(metadata)
+    except TypeError:
+        raise MetadataScrapeError(f'Missing metadata: {metadata}')
     defaults = {
         'name': metadata['name'],
         'effect': metadata.get('effect'),
@@ -128,13 +136,13 @@ def upsert_asset(item: dict) -> Asset:
         id=asset_info['id'],
         defaults=defaults,
     )
-    if created:
-        logger.info(f'Created {asset}')
+    # if created:
+    #     logger.info(f'Created {asset}')
     return asset
 
 
 def fetch_orders(params: dict) -> dict:
-    logger.info('Fetching orders...')
+    logger.debug('Fetching orders...')
     data = get(f'https://api.x.immutable.com/v1/orders', params)
     if not data['result']:
         raise DataOrdersScrapeError(f'No data! {data}')
@@ -165,7 +173,7 @@ def add_ticker_price(costing: dict) -> dict:
         except Exception as exc:
             raise PricingOrdersScrapeError(f'No price for {costing["currency"]}')
         ticker_prices[costing['currency']] = ticker_price
-    costing['usd'] = costing['cost'] / ticker_price
+    costing['usd'] = costing['cost'] * ticker_price
     return costing
 
 
@@ -186,7 +194,11 @@ def get_costing(item: dict) -> dict:
 
 @retry((OperationalError,), delay=5, jitter=1, max_delay=60, tries=10)
 def upsert_order(item: dict) -> bool:
-    asset = upsert_asset(item)
+    try:
+        asset = upsert_asset(item)
+    except (CardTypeOrdersScrapeError, MetadataScrapeError) as exc:
+        logger.info(f'Bad data: {exc}')
+        return True
     costing = get_costing(item)
     defaults = {
         'asset': asset,
@@ -214,19 +226,19 @@ def upsert_order(item: dict) -> bool:
         id=item['order_id'],
         defaults=defaults,
     )
-    logger.info(f'Saved {order}')
+    # logger.info(f'{created and "Created" or "Updated"} {order}')
     return created
 
 
-def clear_cursor(f):
-    logger.info(f'No new items in data! Clearing cursor...')
-    with open(f, 'wb') as fh:
+def clear_cursor(cut_off, status):
+    file_path = BASE_DIR / f'{cut_off}_{status}.pkl'
+    logger.info(f'Clearing cursor at {file_path}...')
+    with open(file_path, 'wb') as fh:
         pickle.dump(dict(), fh)
 
 
-def scrape_orders(status, complete=False):
-    file_name = complete and 'complete' or 'recent'
-    file_path = BASE_DIR / f'{file_name}_{status}.pkl'
+def load_cursor(cut_off, status) -> dict:
+    file_path = BASE_DIR / f'{cut_off}_{status}.pkl'
     try:
         with open(file_path, 'rb') as fh:
             params = pickle.load(fh)
@@ -238,24 +250,63 @@ def scrape_orders(status, complete=False):
             'sell_token_type': SELL_TOKEN_TYPE_ERC721,
             'status': status,
         }
-    page = 0
+    return params
+
+
+def scrape_orders(complete=False):
+    cut_off = complete and 'complete' or 'recent'
+    active_params = load_cursor(cut_off, ORDER_STATUS_ACTIVE)
+    filled_params = load_cursor(cut_off, ORDER_STATUS_FILLED)
+
+    progress = {
+        ORDER_STATUS_ACTIVE: 999999999,
+        ORDER_STATUS_FILLED: 999999999,
+    }
+    created = {
+        ORDER_STATUS_ACTIVE: 1,
+        ORDER_STATUS_FILLED: 1,
+    }
     while True:
-        page += 1
+        # exit condition
+        if not complete and not created[ORDER_STATUS_FILLED] and not created[ORDER_STATUS_ACTIVE]:
+            logger.info('All recent statuses scraped')
+            return
+
+        if progress[ORDER_STATUS_ACTIVE] >= progress[ORDER_STATUS_FILLED]:
+            status = ORDER_STATUS_ACTIVE
+            params = active_params
+        else:
+            status = ORDER_STATUS_FILLED
+            params = filled_params
+        logger.info(f'Scraping {status} (progress: {progress}) (created {created})')
+
+        # fetch orders
         try:
             data = fetch_orders(params)
         except DataOrdersScrapeError:
-            return clear_cursor(file_path)
+            return clear_cursor(cut_off, status)
 
+        # persist orders (checking count for recent)
         created_count = 0
         for item in data['result']:
-            created = upsert_order(item)
-            created_count += int(created)
-        if not complete and not created_count:
-            return clear_cursor(file_path)
+            created_item = upsert_order(item)
+            created_count += int(created_item)
+        created[status] = created_count
+        logger.info(f'Created {status} {created_count}/{len(data["result"])}')
+        if not complete and not created[status]:
+            clear_cursor(cut_off, status)
+            progress[status] = 0  # in order to switch to other status and exit once that is done
+            logger.info(f'Have only retrieved existing {status} orders. Done.')
+            continue
 
+        # exit if completed
         if 'cursor' not in data:
-            logger.info('No cursor returned.')
-            return clear_cursor(file_path)
+            logger.info(f'No cursor returned for {status}.')
+            created[status] = 0
+            clear_cursor(cut_off, status)
+            continue
         params['cursor'] = data['cursor']
+        file_path = BASE_DIR / f'{cut_off}_{status}.pkl'
         with open(file_path, 'wb') as fh:
             pickle.dump(params, fh)
+        progress[status] = data['result'][-1]['order_id']

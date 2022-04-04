@@ -18,7 +18,7 @@ def build_day_stats(proto: Proto):
 
     # get last day stat as starting point
     orders = list(Order.objects.filter(
-        status=ORDER_STATUS_FILLED, asset__proto=proto, asset__quality='Meteorite'
+        status=ORDER_STATUS_FILLED, asset__proto=proto, asset__quality='Meteorite', usd__gt=0
     ).order_by('updated_at').values())
 
     if orders:
@@ -27,15 +27,15 @@ def build_day_stats(proto: Proto):
         df.index = pd.to_datetime(df.index).floor('D')
 
         # drop outliers
-        q1 = df['cost'].quantile(0.25)
-        q3 = df['cost'].quantile(0.75)
+        q1 = df['usd'].quantile(0.25)
+        q3 = df['usd'].quantile(0.75)
         iqr = q3 - q1
         upper_bound = q3 + 1.5 * iqr
-        df_out = df[df['cost'] <= upper_bound]
+        df_out = df[df['usd'] <= upper_bound]
 
         # aggregate
         df_res = df_out.resample('D')
-        df_agg = df_res.agg({'quantity': 'sum', 'cost': 'mean'})
+        df_agg = df_res.agg({'quantity': 'sum', 'usd': 'mean'})
         ix = pd.date_range(start=df_agg.index.min(), end=pd.Timestamp.today(tz='UTC'), freq='D')
         df_agg = df_agg.reindex(ix)
         df_agg['quantity'].fillna(0, inplace=True)
@@ -43,17 +43,19 @@ def build_day_stats(proto: Proto):
         df_agg['vol14'] = df_agg['quantity'].rolling('14d', min_periods=1).sum()
         df_agg['vol30'] = df_agg['quantity'].rolling('30d', min_periods=1).sum()
         df_agg['vol60'] = df_agg['quantity'].rolling('60d', min_periods=1).sum()
-        df_agg['cost'].fillna(method='ffill', inplace=True)
-        df_agg['prc7'] = df_agg['cost'].rolling('7d', min_periods=1).mean()
-        df_agg['prc14'] = df_agg['cost'].rolling('14d', min_periods=1).mean()
-        df_agg['prc30'] = df_agg['cost'].rolling('30d', min_periods=1).mean()
-        df_agg['prc60'] = df_agg['cost'].rolling('60d', min_periods=1).mean()
+        df_agg['usd'].fillna(method='ffill', inplace=True)
+        df_agg['prc7'] = df_agg['usd'].rolling('7d', min_periods=1).mean()
+        df_agg['prc14'] = df_agg['usd'].rolling('14d', min_periods=1).mean()
+        df_agg['prc30'] = df_agg['usd'].rolling('30d', min_periods=1).mean()
+        df_agg['prc60'] = df_agg['usd'].rolling('60d', min_periods=1).mean()
+
+        # save the daily stats for each proto
         for day_val, row in df_agg.iterrows():
             day, _ = Day.objects.get_or_create(day=day_val)
             history = History.objects.create(
                 day=day,
                 proto=proto,
-                last_price=row['cost'],
+                last_price=row['usd'],
                 prc7=row['prc7'],
                 prc14=row['prc14'],
                 prc30=row['prc30'],
@@ -64,15 +66,26 @@ def build_day_stats(proto: Proto):
                 vol60=row['vol60'],
             )
 
+    # update stats on proto
+    # active
+    proto.current_price = None
+    proto.runner_price = None
     orders = Order.objects.filter(
         asset__proto=proto, status=ORDER_STATUS_ACTIVE
-    ).order_by('cost').all()
+    ).order_by('usd').all()
     proto.qty_on_sale = len(orders)
     if orders:
-        proto.current_price = orders[0].cost
+        proto.current_price = orders[0].usd
     if len(orders) > 1:
-        proto.runner_price = orders[1].cost
-        proto.ratio_price = proto.current_price / proto.runner_price
+        proto.runner_price = orders[1].usd
+    # filled
+    proto.last_price = None
+    orders = Order.objects.filter(
+        asset__proto=proto, status=ORDER_STATUS_FILLED
+    ).order_by('-updated_at').all()
+    if orders:
+        proto.last_price = orders[0].usd
+    # timestamp and save
     proto.stats_at = now()
     proto.save()
     logger.info(f'Created histories for {proto}')

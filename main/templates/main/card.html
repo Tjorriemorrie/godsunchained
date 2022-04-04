@@ -27,6 +27,7 @@
 
 <br/>
 <div class="flexbox">
+
     <div class="flexbox-item">
         <h4>Active</h4>
         <table width="100%" border="1" cellspacing="1">
@@ -34,6 +35,7 @@
             <tr>
                 <th>ID</th>
                 <th>Cost</th>
+                <th>USD</th>
                 <th>Sell token type</th>
                 <th>Updated at</th>
             </tr>
@@ -45,7 +47,8 @@
                         <a href="https://api.x.immutable.com/v1/orders/{{ order.id }}" target="_new">{{ order.id }}</a>
                         (<a href="https://api.x.immutable.com/v1/assets/{{ order.sell_token_address }}/{{ order.sell_token_id }}" target="_blank">asset</a>)
                     </td>
-                    <td>{{ order.cost|floatformat:6|intcomma }}</td>
+                    <td>{{ order.cost|floatformat:6|intcomma }} {{ order.currency }}</td>
+                    <td>${{ order.usd|floatformat:4|intcomma }}</td>
                     <td>{{ order.sell_type }}</td>
                     <td>{{ order.updated_at }}</td>
                 </tr>
@@ -53,18 +56,31 @@
             </tbody>
         </table>
     </div>
+
     <div class="flexbox-item">
         <h4>Filled</h4>
+
         <table width="100%" border="1" cellspacing="1">
             <thead>
             <tr>
                 <th>ID</th>
+                <th>Cost</th>
+                <th>USD</th>
+                <th>Sell token type</th>
+                <th>Updated at</th>
             </tr>
             </thead>
             <tbody>
-            {% for order in proto.active_orders %}
+            {% for order in proto.filled_orders %}
             <tr>
-                <td><a href="https://api.x.immutable.com/v1/orders/{{ order.id }}" target="_new">{{ order.id }}</a></td>
+                <td>
+                    <a href="https://api.x.immutable.com/v1/orders/{{ order.id }}" target="_new">{{ order.id }}</a>
+                    (<a href="https://api.x.immutable.com/v1/assets/{{ order.sell_token_address }}/{{ order.sell_token_id }}" target="_blank">asset</a>)
+                </td>
+                <td>{{ order.cost|floatformat:6|intcomma }} {{ order.currency }}</td>
+                <td>${{ order.usd|floatformat:4|intcomma }}</td>
+                <td>{{ order.sell_type }}</td>
+                <td>{{ order.updated_at }}</td>
             </tr>
             {% endfor %}
             </tbody>

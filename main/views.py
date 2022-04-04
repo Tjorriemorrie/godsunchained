@@ -67,25 +67,6 @@ class CardView(TemplateView):
         return kwargs
 
 
-class RatioView(TemplateView):
-    template_name = 'main/ratio.html'
-
-    def get_context_data(self, **kwargs):
-        kwargs = super().get_context_data(**kwargs)
-        protos = Proto.objects.filter(
-            qty_on_sale__gt=1, ratio_price__lt=0.9
-        ).order_by('ratio_price').all()
-        kwargs['protos'] = [
-            p for p in protos
-            if p.histories.last()
-               and (p.current_price < p.histories.last().last_price
-                    or p.current_price < p.histories.last().prc7)
-               and (p.runner_price < p.histories.last().prc7
-                    or p.runner_price < p.histories.last().prc14)
-               and p.histories.last().vol7 > 0]
-        return kwargs
-
-
 class BargainView(TemplateView):
     template_name = 'main/bargain.html'
 
@@ -94,11 +75,16 @@ class BargainView(TemplateView):
         protos = Proto.objects.filter(qty_on_sale__gte=1).all()
         data = []
         for proto in protos:
-            if proto.histories.last() and proto.histories.last().vol7 > 2 and proto.histories.last().vol60 > 10:
-                proto.ratio_bargain = proto.current_price / proto.histories.last().prc14
+            if his := proto.histories.last():
+                if his.vol7 < 1 or his.vol14 < 2 or his.vol30 < 4 or his.vol60 < 8:
+                    continue
+                vs_last = his.last_price - proto.current_price
+                vs_7day = his.prc7 - proto.current_price
+                proto.bargain = min([vs_last, vs_7day])
                 data.append(proto)
-        data.sort(key=lambda x: x.ratio_bargain)
-        kwargs['protos'] = [d for d in data if d.ratio_bargain < 0.8]
+        data.sort(key=lambda x: x.bargain, reverse=True)
+        # kwargs['protos'] = [d for d in data if d.ratio_bargain < 0.8]
+        kwargs['protos'] = data[:20]
         return kwargs
 
 

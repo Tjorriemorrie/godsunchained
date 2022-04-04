@@ -19,6 +19,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         logger.info('Started scraping orders')
-        for status in [ORDER_STATUS_ACTIVE, ORDER_STATUS_FILLED]:
-            scrape_orders(status, complete=options['complete'])
+        scrape_orders(complete=options['complete'])
         logger.info('Finished scraping orders')
